@@ -1,2 +1,5 @@
 redis:
   url: 47.110.252.26
+  database: 14
+  port: 6379
+  timeout: 60
