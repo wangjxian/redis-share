@@ -354,4 +354,54 @@ list/set/hash/zset 这四种数据结构是容器型数据结构，它们共享�
 	> ttl codehole (integer) 597
 	> set codehole yoyo OK
 	> ttl codehole (integer) -1
+	
+## Redis的应用
+
+### 1.分布式锁
+
+
+分布式锁本质上要实现的目标就是在 Redis 里面占一个“茅坑”，当别的进程也要来占 时，发现已经有人蹲在那里了，就只好放弃或者稍后再试。
+占坑一般是使用 setnx(set if not exists) 指令，只允许被一个客户端占坑。先来先占， 用 完了，再调用 del 指令释放茅坑。
+
+
+	> setnx lock-codehole true OK
+	... do something critical ... 
+	> del lock-codehole (integer) 1
+	
+#### 死锁问题
+但是有个问题，如果逻辑执行到中间出现异常了，可能会导致 del 指令没有被调用，这样 就会陷入死锁，锁永远得不到释放。
+于是我们在拿到锁之后，再给锁加上一个过期时间，比如 5s，这样即使中间出现异常也 可以保证 5 秒之后锁会自动释放。
+
+	> setnx lock-codehole true OK
+	> expire lock:codehole 5
+	... do something critical ... 
+	> del lock-codehole (integer) 1
+	
+但是以上逻辑还有问题。如果在 setnx 和 expire 之间服务器进程突然挂掉了，可能是因 为机器掉电或者是被人为杀掉的，就会导致 expire 得不到执行，也会造成死锁。
+
+这种问题的根源就在于 setnx 和 expire 是两条指令而不是原子指令。如果这两条指令可 以一起执行就不会出现问题。也许你会想到用 Redis 事务来解决。但是这里不行，因为 expire 是依赖于 setnx 的执行结果的，如果 setnx 没抢到锁，expire 是不应该执行的。事务里没有 if- else 分支逻辑，事务的特点是一口气执行，要么全部执行要么一个都不执行。
+
+![6](https://img.asman.com.cn/lock.jpg)
+
+#### 超时问题
+
+Redis 的分布式锁不能解决超时问题，如果在加锁和释放锁之间的逻辑执行的太长，以至 于超出了锁的超时限制，就会出现问题。因为这时候锁过期了，第二个线程重新持有了这把锁， 但是紧接着第一个线程执行完了业务逻辑，就把锁给释放了，第三个线程就会在第二个线程逻 辑执行完之间拿到了锁。
+
+有一个安全的方案是为 set 指令的 value 参数设置为一个随机数，释放锁时先匹配 随机数是否一致，然后再删除 key。但是匹配 value 和删除 key 不是一个原子操作，Redis 也 没有提供类似于 delifequals 这样的指令，这就需要使用 Lua 脚本来处理了，因为 Lua 脚本可 以保证连续多个指令的原子性执行。
+
+	#lua 脚本 原子删除key
+	if redis.call("get",KEYS[1]) == ARGV[1] then
+	return redis.call("del",KEYS[1])
+	else
+	return 0
+	end
+	
+但是在redis集群环境下，从库的key过期完全依赖主库的同步,主从数据库存在数据同步的延迟问题,因此在集群环境下的redis分布式锁用此种方式依然存在问题。我们可以借鉴其他的优秀开源框架比如redisson
+
+### 2.延迟队列
+
+延时队列可以通过 Redis 的 zset(有序列表) 来实现。我们将消息序列化成一个字符串作 为 zset 的 value，这个消息的到期处理时间作为 score，然后用多个线程轮询 zset 获取到期 的任务进行处理，多个线程是为了保障可用性，万一挂了一个线程还有其它线程可以继续处 理。因为有多个线程，所以需要考虑并发争抢任务，确保任务不能被多次执行。
+
+
+
 
