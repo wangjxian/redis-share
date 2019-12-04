@@ -9,7 +9,7 @@ Redis 由意大利人 Salvatore Sanfilippo 开发.
 默认端口是6379是由手机键盘字母「MERZ」 的位置决定的。「MERZ」在 Antirez 的朋友 圈语言中是「愚蠢」的代名词
 ```
 
-##NOSQL
+## NOSQL
 
 ### 1.什么是nosql
 NoSQL（not only sql，不仅仅是SQL），泛指非关系型数据库
