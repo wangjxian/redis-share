@@ -410,6 +410,14 @@ list/set/hash/zset 这四种数据结构是容器型数据结构，它们共享�
 
 ![6](https://img.asman.com.cn/lock.jpg)
 
+为了治理这个乱象，Redis 2.8 版本中作者加入了 set 指令的扩展参数，使得 setnx 和 expire 指令可以一起执行，彻底解决了分布式锁的乱象。从此以后所有的第三方分布式锁 library 可以休息了。 
+
+    > set lock:codehole true ex 5 nx OK ... 
+    do something critical ... 
+    > del lock:codehole 
+    
+上面这个指令就是 setnx 和 expire 组合在一起的原子指令，它就是分布式锁的 奥义所在。
+
 #### 超时问题
 
 Redis 的分布式锁不能解决超时问题，如果在加锁和释放锁之间的逻辑执行的太长，以至 于超出了锁的超时限制，就会出现问题。因为这时候锁过期了，第二个线程重新持有了这把锁， 但是紧接着第一个线程执行完了业务逻辑，就把锁给释放了，第三个线程就会在第二个线程逻 辑执行完之间拿到了锁。
