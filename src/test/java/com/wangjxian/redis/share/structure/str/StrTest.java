@@ -5,11 +5,9 @@ import com.wangjxian.redis.share.client.codec.RedisObj;
 import com.wangjxian.redis.share.client.connection.ByteConnect;
 import com.wangjxian.redis.share.client.connection.DefaultStringConnect;
 import com.wangjxian.redis.share.client.connection.JsonConnect;
+import com.wangjxian.redis.share.structure.Obj;
 import io.lettuce.core.api.StatefulRedisConnection;
 import javax.annotation.Resource;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -59,12 +57,5 @@ public class StrTest extends RedisShareApplicationTests {
     System.out.println(test);
   }
 
-  @Data
-  @AllArgsConstructor
-  @NoArgsConstructor
-  public static class Obj{
-    private int id;
-    private String name;
-  }
 
 }
